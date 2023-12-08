@@ -1,0 +1,46 @@
+name: arduino-prebuilt-release-actions-workflow
+on:
+  push:
+    # Sequence of patterns matched against refs/tags
+    tags:
+      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+      - 'c*'
+      
+jobs:
+  build:
+    name: Create Release
+    runs-on: windows-latest
+    env:
+      arduinoCliTargetZip: ${{ github.event.repository.name }}-${{ github.ref_name }}-arduino-cli_0.33.1_Windows_64bit.zip
+    steps:
+      - uses: actions/checkout@v3
+      
+      - shell: cmd
+        run: |
+          curl https://github.com/arduino/arduino-cli/releases/download/0.33.1/arduino-cli_0.33.1_Windows_64bit.zip -L -O -J &&^
+          7z.exe x arduino-cli_0.33.1_Windows_64bit.zip -o"arduino-cli_0.33.1_Windows_64bit" &&^
+          dir
+          
+      - name: set PATH, check mingw version, cmake generate, build and install
+        shell: cmd
+        run: |
+            set PATH=^
+            ${{ github.workspace }}\arduino-cli_0.33.1_Windows_64bit;
+            set CD_LINUX=%CD:\=/%
+            arduino-cli core download arduino:avr &&^
+            arduino-cli.exe core install arduino:avr &&^
+            arduino-cli compile -b arduino:avr:uno main --build-path=build
+            
+      - name: Archive Release
+        uses: thedoctor0/zip-release@master
+        with:
+          type: 'zip'
+          directory: "build"
+          filename: "${{ env.arduinoCliTargetZip }}"
+        
+      - name: Release prebuilt
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "build/${{ env.arduinoCliTargetZip }}"
+          allowUpdates: true
+          token: ${{ secrets.GITHUB_TOKEN }}
